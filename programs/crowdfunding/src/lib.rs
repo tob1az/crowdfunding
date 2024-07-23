@@ -17,6 +17,21 @@ pub mod crowdfunding {
         Ok(())
     }
 
+    pub fn withdraw(context: Context<Withdraw>, amount: u64) -> ProgramResult {
+        let campaign = &mut context.accounts.campaign;
+        let user = &mut context.accounts.user;
+        if campaign.admin != *user.key {
+            return Err(ProgramError::IncorrectProgramId);
+        }
+        let rent_balance = Rent::get()?.minimum_balance(campaign.to_account_info().data_len());
+        if **campaign.to_account_info().lamports.borrow() - rent_balance < amount {
+            return Err(ProgramError::InsufficientFunds);
+        }
+        **campaign.to_account_info().try_borrow_mut_lamports()? -= amount;
+        **user.to_account_info().try_borrow_mut_lamports()? += amount;
+        Ok(())
+    }
+
 }
 
 #[derive(Accounts)]
@@ -26,6 +41,14 @@ pub struct Create<'info> {
     #[account(mut)]
     pub user: Signer<'info>,
     pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct Withdraw<'info> {
+    #[account(mut)]
+    pub campaign: Account<'info, Campaign>,
+    #[account(mut)]
+    pub user: Signer<'info>,
 }
 
 

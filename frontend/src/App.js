@@ -6,7 +6,6 @@ import { Program, AnchorProvider, web3, utils, BN } from "@coral-xyz/anchor";
 import { Buffer } from "buffer";
 window.Buffer = Buffer;
 
-const programId = new PublicKey(idl.address);
 const network = clusterApiUrl("devnet");
 const opts = {
   preflightCommitment: "processed",
@@ -15,6 +14,7 @@ const { SystemProgram } = web3;
 
 const App = () => {
   const [walletAddress, setWalletAddress] = useState(null);
+  const [campaigns, setCampaigns] = useState([]);
   const getProvider = () => {
     const connection = new Connection(network, opts.preflightCommitment);
     const provider = new AnchorProvider(connection, window.solana, opts.preflightCommitment);
@@ -52,6 +52,16 @@ const App = () => {
     }
   };
 
+  const getCampaigns = async () => {
+    const connection = new Connection(network, opts.preflightCommitment);
+    const provider = new AnchorProvider(connection, window.solana, opts.preflightCommitment);
+    const program = new Program(idl, provider);
+    Promise.all((await connection.getProgramAccounts(program.programId)).map(async (campaign) => ({
+      ...(await program.account.campaign.fetch(campaign.pubkey)),
+      pubkey: campaign.pubkey
+    }))).then((campaigns) => setCampaigns(campaigns))
+  }
+
   const createCampaign = async () => {
     try {
       const provider = getProvider();
@@ -79,7 +89,20 @@ const App = () => {
   );
 
   const renderConnectedContainer = () => (
-    <button onClick={createCampaign}>Create a campaign</button>
+    <>
+      <button onClick={createCampaign}>Create a campaign</button>
+      <button onClick={getCampaigns}>Get a list of campaigns</button>
+      <br />
+      {campaigns.map(campaign => (
+        <>
+          <p>Campaign ID: {campaign.pubkey.toString()}</p>
+          <p>Balance: {(campaign.amountDonated / web3.LAMPORTS_PER_SOL).toString()}</p>
+          <p>{campaign.name}</p>
+          <p>{campaign.description}</p>
+          <br />
+        </>
+      ))}
+    </>
   );
 
   useEffect(() => {
